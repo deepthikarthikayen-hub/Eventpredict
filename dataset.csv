@@ -1,0 +1,71 @@
+import streamlit as st
+import pandas as pd
+import joblib
+from gemini import generate_suggestions
+model = joblib.load("attendance_model.pkl")
+event_encoder = joblib.load("event_encoder.pkl")
+day_encoder = joblib.load("day_encoder.pkl")
+st.title("Event Attendance Prediction")
+event_type = st.selectbox("Event Type", event_encoder.classes_)
+
+day_of_week = st.selectbox("Day of Week", day_encoder.classes_)
+
+venue_capacity = st.number_input("Venue Capacity", min_value=50)
+
+current_registrations = st.number_input("Current Registrations", min_value=0)
+
+promotion_budget = st.number_input("Promotion Budget", min_value=0)
+
+days_before_event = st.number_input("Days Before Event", min_value=1)
+
+event_duration_hours = st.number_input("Event Duration (Hours)", min_value=1)
+
+previous_similar_event_attendance = st.number_input(
+    "Previous Similar Event Attendance", min_value=0
+)
+
+available_organizers = st.number_input("Available Organizers", min_value=1)
+
+total_event_budget = st.number_input("Total Event Budget", min_value=0)
+event_type_encoded = event_encoder.transform([event_type])[0]
+day_encoded = day_encoder.transform([day_of_week])[0]
+input_data = pd.DataFrame({
+    "event_type": [event_type_encoded],
+    "day_of_week": [day_encoded],
+    "venue_capacity": [venue_capacity],
+    "current_registrations": [current_registrations],
+    "promotion_budget": [promotion_budget],
+    "days_before_event": [days_before_event],
+    "event_duration_hours": [event_duration_hours],
+    "previous_similar_event_attendance": [previous_similar_event_attendance],
+    "available_organizers": [available_organizers],
+    "total_event_budget": [total_event_budget]
+})
+prediction = model.predict(input_data)
+if st.button("Predict Attendance"):
+
+    prediction = model.predict(input_data)
+
+    st.success(f"Predicted Attendance: {int(prediction[0])} people")
+    st.write(f"Difference: {int(prediction[0]) - current_registrations}")
+    st.write(f"Venue Utilization: {(int(prediction[0]) / venue_capacity) * 100:.1f}%")
+
+    if int(prediction[0]) > venue_capacity:
+        st.warning("⚠️ Exceeds venue capacity!")
+
+    suggestions = generate_suggestions(
+        event_type,
+        day_of_week,
+        venue_capacity,
+        current_registrations,
+        promotion_budget,
+        days_before_event,
+        event_duration_hours,
+        previous_similar_event_attendance,
+        available_organizers,
+        total_event_budget,
+        prediction[0]
+    )
+
+    st.subheader("AI Suggestions")
+    st.write(suggestions)
